@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+@rendermode InteractiveServer
+@implements IDisposable
+@using Woodpecker.Web.Services
+@inject AuthState AuthState
+@inject NavigationManager Nav
+
+<nav class="app-nav">
+    <a href="/">Woodpecker</a>
+    @if (AuthState.IsAuthenticated)
+    {
+        <a href="/sets">Mes sets</a>
+        <span style="margin-left: auto;">@AuthState.Email</span>
+        <button @onclick="LogoutAsync">Se déconnecter</button>
+    }
+    else
+    {
+        <a href="/login" style="margin-left: auto;">Se connecter</a>
+    }
+</nav>
+
+<div class="app-content">
+    @Body
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        AuthState.OnChange += OnAuthChanged;
+        await AuthState.EnsureRestoredAsync();
+    }
+
+    // La barre de navigation doit refléter un login/logout déclenché depuis une page.
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task LogoutAsync()
+    {
+        await AuthState.ClearAsync();
+        Nav.NavigateTo("/");
+    }
+
+    public void Dispose() => AuthState.OnChange -= OnAuthChanged;
+}

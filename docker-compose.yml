@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: woodpecker-postgres
+    environment:
+      POSTGRES_DB: woodpecker
+      POSTGRES_USER: woodpecker
+      # Les secrets viennent du fichier .env (non versionné, cf. .env.example). La syntaxe
+      # ${VAR:?message} fait échouer docker compose avec un message clair si la variable manque.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans .env (voir .env.example)}
+    ports:
+      - "5432:5432"
+    volumes:
+      - woodpecker-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U woodpecker -d woodpecker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: woodpecker-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__WoodpeckerDb: "Host=postgres;Port=5432;Database=woodpecker;Username=woodpecker;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: ${JWT_KEY:?Définir JWT_KEY dans .env (voir .env.example)}
+      Jwt__Issuer: "Woodpecker"
+      Jwt__Audience: "WoodpeckerClient"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: woodpecker-web
+    depends_on:
+      - api
+    ports:
+      - "5090:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Adresse de l'API vue depuis l'intérieur du réseau Docker (nom du service, pas
+      # localhost) : ApiBaseUrl est lu par Woodpecker.Web/Program.cs via la config standard
+      # ASP.NET Core, qui prend automatiquement le pas sur appsettings.json.
+      ApiBaseUrl: "http://api:8080"
+
+volumes:
+  woodpecker-postgres-data:

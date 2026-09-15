@@ -1,0 +1,164 @@
+@page "/sets"
+@rendermode InteractiveServer
+@using Woodpecker.Web.Services
+@inject WoodpeckerApiClient Api
+@inject AuthState AuthState
+@inject NavigationManager Nav
+
+<PageTitle>Mes sets</PageTitle>
+
+@if (!AuthState.IsAuthenticated)
+{
+    <p>Vous devez être connecté. <a href="/login">Se connecter</a></p>
+}
+else
+{
+    <h1>Commencer un set</h1>
+
+    @if (_templates is null)
+    {
+        <p>Chargement...</p>
+    }
+    else
+    {
+        <ul class="card-list">
+            @foreach (var template in _templates)
+            {
+                var available = template.AvailablePuzzleCount >= template.PuzzleCount;
+                <li class="card-list-item">
+                    <div>
+                        <strong>@template.Name</strong>
+                        <div class="meta">@template.Description · @template.PuzzleCount puzzles</div>
+                    </div>
+                    <button class="btn btn-sm btn-primary"
+                            disabled="@(!available || _busy)"
+                            @onclick="() => StartFromTemplateAsync(template.Key)">
+                        Commencer
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_sets is { Count: > 0 })
+    {
+        <hr />
+        <h2>Mes sets</h2>
+        <p>Refaire un set en cycles successifs, de plus en plus vite : c'est tout le principe de la méthode.</p>
+
+        <ul class="card-list">
+            @foreach (var set in _sets)
+            {
+                <li class="card-list-item">
+                    <div>
+                        <strong>@set.Name</strong>
+                        <div class="meta">@set.PuzzleCount puzzle(s)@(set.ActiveCycleId is not null ? " · cycle en cours" : "")</div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => ToggleProgressionAsync(set.Id)">
+                            @(_progressions.ContainsKey(set.Id) ? "Masquer" : "Progression")
+                        </button>
+                        @if (set.ActiveCycleId is Guid activeCycleId)
+                        {
+                            <button class="btn btn-sm btn-primary" disabled="@_busy" @onclick="() => ResumeCycle(set.Id, activeCycleId)">Reprendre le cycle</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-primary" disabled="@_busy" @onclick="() => StartCycleAsync(set.Id)">Nouveau cycle</button>
+                        }
+                    </div>
+                    @if (_progressions.TryGetValue(set.Id, out var progression))
+                    {
+                        <div style="flex-basis: 100%;">
+                            <CycleProgression Cycles="progression" />
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="text-danger">@_error</p>
+    }
+}
+
+@code {
+    private IReadOnlyList<SetTemplateDto>? _templates;
+    private IReadOnlyList<PuzzleSetSummaryDto>? _sets;
+    private readonly Dictionary<Guid, IReadOnlyList<CycleProgressionDto>> _progressions = new();
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthState.EnsureRestoredAsync();
+        if (!AuthState.IsAuthenticated)
+            return;
+
+        try
+        {
+            _templates = await Api.GetSetTemplatesAsync();
+            _sets = await Api.GetMySetsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de charger les données depuis l'API : {ex.Message}";
+            _templates = [];
+            _sets = [];
+        }
+    }
+
+    // Un clic = un set créé à partir du modèle + son premier cycle démarré.
+    private async Task StartFromTemplateAsync(string templateKey)
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            var setId = await Api.CreateSetFromTemplateAsync(templateKey);
+            var cycleId = await Api.StartCycleAsync(setId);
+            Nav.NavigateTo($"/train/{setId}/{cycleId}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de commencer ce set : {ex.Message}";
+            _busy = false;
+        }
+    }
+
+    private async Task StartCycleAsync(Guid setId)
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            var cycleId = await Api.StartCycleAsync(setId);
+            Nav.NavigateTo($"/train/{setId}/{cycleId}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de démarrer le cycle : {ex.Message}";
+            _busy = false;
+        }
+    }
+
+    private void ResumeCycle(Guid setId, Guid cycleId) => Nav.NavigateTo($"/train/{setId}/{cycleId}");
+
+    private async Task ToggleProgressionAsync(Guid setId)
+    {
+        if (_progressions.Remove(setId))
+            return;
+
+        _error = null;
+        try
+        {
+            _progressions[setId] = await Api.GetSetProgressionAsync(setId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de charger la progression : {ex.Message}";
+        }
+    }
+}

@@ -1,0 +1,85 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C8F65848-317D-4973-9CAC-5AF8D328B2D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Domain", "src\Woodpecker.Domain\Woodpecker.Domain.csproj", "{382A5676-70E6-4185-9480-C461A0DB110E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Application", "src\Woodpecker.Application\Woodpecker.Application.csproj", "{AA162439-32B5-4250-BDE1-C209035A45BB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Infrastructure", "src\Woodpecker.Infrastructure\Woodpecker.Infrastructure.csproj", "{196FFFEE-713C-47E5-B369-0CFBA81605F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Api", "src\Woodpecker.Api\Woodpecker.Api.csproj", "{13DB62A4-9215-446B-8D32-B598209D7B72}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{59BE8EA8-8B48-4661-8232-F609EF9AF179}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Domain.Tests", "tests\Woodpecker.Domain.Tests\Woodpecker.Domain.Tests.csproj", "{CBBED3C8-0A9F-44E1-9A00-AC359B8F2131}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Application.Tests", "tests\Woodpecker.Application.Tests\Woodpecker.Application.Tests.csproj", "{B0CA4E9F-8041-40D7-92EF-02B726D162DB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Infrastructure.Tests", "tests\Woodpecker.Infrastructure.Tests\Woodpecker.Infrastructure.Tests.csproj", "{B87F6C8B-C44F-4CEB-9103-5B3321CBE7EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Api.Tests", "tests\Woodpecker.Api.Tests\Woodpecker.Api.Tests.csproj", "{8521AA23-47D2-4742-8007-2CF740518B7E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Woodpecker.Web", "src\Woodpecker.Web\Woodpecker.Web.csproj", "{459EA289-8C7F-44BB-A7AE-E3AB6CCDFB4A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{382A5676-70E6-4185-9480-C461A0DB110E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{382A5676-70E6-4185-9480-C461A0DB110E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{382A5676-70E6-4185-9480-C461A0DB110E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{382A5676-70E6-4185-9480-C461A0DB110E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA162439-32B5-4250-BDE1-C209035A45BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA162439-32B5-4250-BDE1-C209035A45BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA162439-32B5-4250-BDE1-C209035A45BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA162439-32B5-4250-BDE1-C209035A45BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{196FFFEE-713C-47E5-B369-0CFBA81605F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{196FFFEE-713C-47E5-B369-0CFBA81605F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{196FFFEE-713C-47E5-B369-0CFBA81605F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{196FFFEE-713C-47E5-B369-0CFBA81605F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{13DB62A4-9215-446B-8D32-B598209D7B72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{13DB62A4-9215-446B-8D32-B598209D7B72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{13DB62A4-9215-446B-8D32-B598209D7B72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{13DB62A4-9215-446B-8D32-B598209D7B72}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CBBED3C8-0A9F-44E1-9A00-AC359B8F2131}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CBBED3C8-0A9F-44E1-9A00-AC359B8F2131}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CBBED3C8-0A9F-44E1-9A00-AC359B8F2131}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CBBED3C8-0A9F-44E1-9A00-AC359B8F2131}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0CA4E9F-8041-40D7-92EF-02B726D162DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0CA4E9F-8041-40D7-92EF-02B726D162DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0CA4E9F-8041-40D7-92EF-02B726D162DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0CA4E9F-8041-40D7-92EF-02B726D162DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B87F6C8B-C44F-4CEB-9103-5B3321CBE7EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B87F6C8B-C44F-4CEB-9103-5B3321CBE7EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B87F6C8B-C44F-4CEB-9103-5B3321CBE7EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B87F6C8B-C44F-4CEB-9103-5B3321CBE7EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8521AA23-47D2-4742-8007-2CF740518B7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8521AA23-47D2-4742-8007-2CF740518B7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8521AA23-47D2-4742-8007-2CF740518B7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8521AA23-47D2-4742-8007-2CF740518B7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{459EA289-8C7F-44BB-A7AE-E3AB6CCDFB4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{459EA289-8C7F-44BB-A7AE-E3AB6CCDFB4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{459EA289-8C7F-44BB-A7AE-E3AB6CCDFB4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{459EA289-8C7F-44BB-A7AE-E3AB6CCDFB4A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{382A5676-70E6-4185-9480-C461A0DB110E} = {C8F65848-317D-4973-9CAC-5AF8D328B2D3}
+		{AA162439-32B5-4250-BDE1-C209035A45BB} = {C8F65848-317D-4973-9CAC-5AF8D328B2D3}
+		{196FFFEE-713C-47E5-B369-0CFBA81605F7} = {C8F65848-317D-4973-9CAC-5AF8D328B2D3}
+		{13DB62A4-9215-446B-8D32-B598209D7B72} = {C8F65848-317D-4973-9CAC-5AF8D328B2D3}
+		{CBBED3C8-0A9F-44E1-9A00-AC359B8F2131} = {59BE8EA8-8B48-4661-8232-F609EF9AF179}
+		{B0CA4E9F-8041-40D7-92EF-02B726D162DB} = {59BE8EA8-8B48-4661-8232-F609EF9AF179}
+		{B87F6C8B-C44F-4CEB-9103-5B3321CBE7EF} = {59BE8EA8-8B48-4661-8232-F609EF9AF179}
+		{8521AA23-47D2-4742-8007-2CF740518B7E} = {59BE8EA8-8B48-4661-8232-F609EF9AF179}
+		{459EA289-8C7F-44BB-A7AE-E3AB6CCDFB4A} = {C8F65848-317D-4973-9CAC-5AF8D328B2D3}
+	EndGlobalSection
+EndGlobal

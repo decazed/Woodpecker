@@ -1,0 +1,119 @@
+# Parcours complet de l'API, exécutable depuis Visual Studio / VS Code (extension REST Client)
+# ou Rider. Lancer les requêtes dans l'ordre : chaque étape réutilise les réponses des
+# précédentes via les variables {{nom.response.body.$.champ}}.
+
+@host = http://localhost:5080
+@email = demo@woodpecker.local
+@password = Demo1234!
+
+### 1. Créer un compte (rôle Member par défaut)
+# @name register
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### 2. Se connecter : récupère le JWT utilisé par toutes les requêtes suivantes
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+@token = {{login.response.body.$.token}}
+
+### 3. Lister les modèles de set (débutant / intermédiaire / avancé)
+GET {{host}}/api/puzzle-sets/templates
+Authorization: Bearer {{token}}
+
+### 4. Créer un set de 10 puzzles tirés au hasard dans le catalogue
+# @name createSet
+POST {{host}}/api/puzzle-sets/from-template
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "templateKey": "debutant"
+}
+
+###
+@setId = {{createSet.response.body.$.id}}
+
+### 5. Détail du set : la liste ordonnée des puzzles à résoudre
+# @name getSet
+GET {{host}}/api/puzzle-sets/{{setId}}
+Authorization: Bearer {{token}}
+
+###
+@puzzleId = {{getSet.response.body.$.puzzleIds[0]}}
+
+### 6. Récupérer un puzzle. playableFen est la position que voit le joueur (après le coup
+###    de mise en place automatique de l'adversaire), le premier coup à soumettre est l'indice 1.
+GET {{host}}/api/puzzles/{{puzzleId}}
+Authorization: Bearer {{token}}
+
+### 7. Démarrer le premier cycle d'entraînement sur ce set
+# @name startCycle
+POST {{host}}/api/training-cycles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "puzzleSetId": "{{setId}}"
+}
+
+###
+@cycleId = {{startCycle.response.body.$.id}}
+
+### 8. Soumettre un coup (format UCI, ex. "e2e4"). Un coup faux clôt la tentative sur ce
+###    puzzle ; un coup juste non final renvoie resultingFen (réponse adverse jouée) et
+###    nextMoveIndex à soumettre ensuite.
+POST {{host}}/api/training-cycles/{{cycleId}}/attempts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "puzzleId": "{{puzzleId}}",
+  "moveIndex": 1,
+  "submittedMove": "e2e4",
+  "duration": "00:00:12"
+}
+
+### 9. État du cycle : puzzles déjà tentés, clôturé ou non
+GET {{host}}/api/training-cycles/{{cycleId}}
+Authorization: Bearer {{token}}
+
+### 10. Statistiques du cycle (réussite, temps total, temps moyen)
+GET {{host}}/api/training-cycles/{{cycleId}}/stats
+Authorization: Bearer {{token}}
+
+### 11. Progression cycle par cycle sur le set (le cœur de la méthode Woodpecker)
+GET {{host}}/api/puzzle-sets/{{setId}}/progression
+Authorization: Bearer {{token}}
+
+### 12. Puzzles les plus souvent ratés sur ce set (au moins 2 tentatives par défaut)
+GET {{host}}/api/puzzle-sets/{{setId}}/frequently-missed?minAttempts=2
+Authorization: Bearer {{token}}
+
+### 13. Catalogue paginé (pageSize max 200)
+GET {{host}}/api/puzzles?page=1&pageSize=20
+Authorization: Bearer {{token}}
+
+### 14. Import CSV Lichess (rôle Admin uniquement, cf. README pour la promotion en base)
+# POST {{host}}/api/puzzles/import-csv?minRating=1000&maxRating=1500
+# Authorization: Bearer {{token}}
+# Content-Type: multipart/form-data; boundary=----Boundary
+#
+# ------Boundary
+# Content-Disposition: form-data; name="file"; filename="lichess_db_puzzle.csv"
+# Content-Type: text/csv
+#
+# < ./lichess_db_puzzle.csv
+# ------Boundary--

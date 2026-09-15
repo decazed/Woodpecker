@@ -1,0 +1,67 @@
+@page "/login"
+@rendermode InteractiveServer
+@using Woodpecker.Web.Services
+@inject WoodpeckerApiClient Api
+@inject AuthState AuthState
+@inject NavigationManager Nav
+
+<PageTitle>Connexion</PageTitle>
+
+<h1>Woodpecker</h1>
+<p>Entraînement tactique aux échecs par répétition de sets de puzzles.</p>
+
+<div class="card" style="max-width: 400px;">
+    <div class="mb-3">
+        <label>Email</label>
+        <input class="form-control" @bind="_email" />
+    </div>
+    <div class="mb-3">
+        <label>Mot de passe</label>
+        <input type="password" class="form-control" @bind="_password" />
+    </div>
+
+    @if (_error is not null)
+    {
+        <p class="text-danger">@_error</p>
+    }
+
+    <div style="display: flex; gap: 0.6rem;">
+        <button class="btn btn-primary" @onclick="LoginAsync">Se connecter</button>
+        <button class="btn btn-secondary" @onclick="RegisterAsync">Créer un compte</button>
+    </div>
+</div>
+
+@code {
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+
+    private async Task LoginAsync()
+    {
+        _error = null;
+        try
+        {
+            var token = await Api.LoginAsync(_email, _password);
+            await AuthState.SetSessionAsync(token, _email);
+            Nav.NavigateTo("/sets");
+        }
+        catch (Exception)
+        {
+            _error = "Email ou mot de passe incorrect.";
+        }
+    }
+
+    private async Task RegisterAsync()
+    {
+        _error = null;
+        try
+        {
+            await Api.RegisterAsync(_email, _password);
+            await LoginAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de créer le compte : {ex.Message}";
+        }
+    }
+}

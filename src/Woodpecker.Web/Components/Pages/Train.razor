@@ -1,0 +1,247 @@
+@page "/train/{SetId:guid}/{CycleId:guid}"
+@rendermode InteractiveServer
+@implements IDisposable
+@using Woodpecker.Web.Services
+@inject WoodpeckerApiClient Api
+@inject AuthState AuthState
+@inject NavigationManager Nav
+
+<PageTitle>Entraînement</PageTitle>
+
+@if (!AuthState.IsAuthenticated)
+{
+    <p>Vous devez être connecté. <a href="/login">Se connecter</a></p>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+    <a class="btn btn-secondary" href="/sets">Retour à mes sets</a>
+}
+else if (_puzzleIds is null)
+{
+    <p>Chargement...</p>
+}
+else if (_currentIndex >= _puzzleIds.Count)
+{
+    <h1>Set terminé !</h1>
+
+    @if (_stats is not null)
+    {
+        <div class="card" style="max-width: 400px;">
+            <p style="margin: 0 0 0.5rem;">Réussite : <strong>@(_stats.SuccessCount)/@(_stats.PuzzleCount)</strong> (@((_stats.SuccessRate * 100).ToString("0")) %)</p>
+            <p style="margin: 0 0 0.5rem;">Temps total : <strong>@_stats.TotalDuration.ToString(@"mm\:ss")</strong></p>
+            <p style="margin: 0;">Temps moyen par puzzle : <strong>@_stats.AverageDuration.ToString(@"mm\:ss")</strong></p>
+        </div>
+    }
+
+    @if (_progression is { Count: > 1 })
+    {
+        <h2>Progression sur ce set</h2>
+        <CycleProgression Cycles="_progression" />
+    }
+
+    <div style="display: flex; gap: 0.6rem;">
+        <button class="btn btn-primary" @onclick="StartNextCycleAsync">Refaire ce set (cycle suivant)</button>
+        <a class="btn btn-secondary" href="/sets">Retour à mes sets</a>
+    </div>
+}
+else
+{
+    <div style="display: flex; align-items: baseline; gap: 1rem;">
+        <h1 style="margin-bottom: 0.5rem;">Puzzle @(_currentIndex + 1) / @_puzzleIds.Count</h1>
+        <span class="text-muted">⏱ @Elapsed.ToString(@"mm\:ss")</span>
+    </div>
+
+    @if (_currentPuzzle is not null)
+    {
+        <div class="card" style="display: inline-block;">
+            @if (_failed)
+            {
+                <div class="result-banner danger">
+                    <strong>Incorrect.</strong> Ce puzzle est compté comme raté pour ce cycle.
+                    <button class="btn btn-sm btn-primary" @onclick="NextPuzzleAsync">Puzzle suivant →</button>
+                </div>
+            }
+            else if (_lastResult == true)
+            {
+                <div class="result-banner success"><strong>Correct !</strong></div>
+            }
+
+            <ChessBoard @key="_currentPuzzle.Id" Fen="@_boardFen" Flipped="_boardFlipped" OnMoveSubmitted="SubmitMoveAsync" />
+            <p class="text-muted" style="margin: 0.5rem 0 0;">Rating : @_currentPuzzle.Rating</p>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid SetId { get; set; }
+    [Parameter] public Guid CycleId { get; set; }
+
+    private List<Guid>? _puzzleIds;
+    private int _currentIndex;
+    private PuzzleDto? _currentPuzzle;
+    private string _boardFen = string.Empty;
+    private bool _boardFlipped;
+    private int _currentMoveIndex;
+    private bool? _lastResult;
+    private bool _failed;
+    private DateTime _puzzleStartedAt;
+    private CycleStatsDto? _stats;
+    private IReadOnlyList<CycleProgressionDto>? _progression;
+    private string? _error;
+    private System.Timers.Timer? _timer;
+    private Guid _loadedCycleId;
+
+    private TimeSpan Elapsed => DateTime.UtcNow - _puzzleStartedAt;
+
+    // OnParametersSetAsync plutôt que OnInitializedAsync : naviguer vers /train/{set}/{autreCycle}
+    // depuis cette page (bouton "cycle suivant") réutilise la même instance de composant, il
+    // faut donc détecter le changement de CycleId et repartir d'un état vierge.
+    protected override async Task OnParametersSetAsync()
+    {
+        await AuthState.EnsureRestoredAsync();
+        if (!AuthState.IsAuthenticated || CycleId == _loadedCycleId)
+            return;
+
+        _loadedCycleId = CycleId;
+        _timer?.Stop();
+        _puzzleIds = null;
+        _currentIndex = 0;
+        _currentPuzzle = null;
+        _stats = null;
+        _progression = null;
+        _error = null;
+
+        try
+        {
+            var cycle = await Api.GetCycleAsync(CycleId);
+            var set = await Api.GetSetAsync(SetId);
+
+            // Reprise d'un cycle en cours : on ne repropose pas les puzzles déjà tentés
+            // (une seule tentative par puzzle et par cycle, cf. SubmitPuzzleAttemptHandler).
+            // On garde la liste complète (pour un compteur "X/Y" correct) et on reprend à la
+            // première position non tentée, au lieu de retirer les puzzles déjà faits de la
+            // liste (ce qui ferait repartir le compteur à 1).
+            var attempted = cycle?.AttemptedPuzzleIds.ToHashSet() ?? [];
+            _puzzleIds = (set?.PuzzleIds ?? []).ToList();
+            var firstPending = _puzzleIds.FindIndex(id => !attempted.Contains(id));
+            _currentIndex = firstPending < 0 ? _puzzleIds.Count : firstPending;
+
+            await LoadCurrentPuzzleAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de charger l'entraînement : {ex.Message}";
+            return;
+        }
+
+        _timer ??= CreateTimer();
+        if (_currentPuzzle is not null)
+            _timer.Start();
+    }
+
+    private System.Timers.Timer CreateTimer()
+    {
+        var timer = new System.Timers.Timer(1000);
+        timer.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        return timer;
+    }
+
+    private async Task NextPuzzleAsync()
+    {
+        _currentIndex++;
+        try
+        {
+            await LoadCurrentPuzzleAsync();
+            if (_currentPuzzle is not null && _currentIndex < _puzzleIds!.Count)
+                _timer?.Start();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de charger le puzzle suivant : {ex.Message}";
+            _timer?.Stop();
+        }
+    }
+
+    private async Task LoadCurrentPuzzleAsync()
+    {
+        _lastResult = null;
+        _failed = false;
+
+        if (_puzzleIds is null || _currentIndex >= _puzzleIds.Count)
+        {
+            _stats = await Api.GetCycleStatsAsync(CycleId);
+            _progression = await Api.GetSetProgressionAsync(SetId);
+            _timer?.Stop();
+            return;
+        }
+
+        _currentPuzzle = await Api.GetPuzzleAsync(_puzzleIds[_currentIndex]);
+        _boardFen = _currentPuzzle!.PlayableFen;
+        // Le camp qui doit trouver le premier coup est celui au trait dans PlayableFen (après
+        // le coup de mise en place automatique) : on affiche l'échiquier de son point de vue,
+        // et on ne retourne plus la vue ensuite (même après un coup adverse automatique).
+        _boardFlipped = _boardFen.Split(' ')[1] == "b";
+        _currentMoveIndex = 1; // l'indice 0 (mise en place) est déjà joué dans PlayableFen
+        _puzzleStartedAt = DateTime.UtcNow;
+    }
+
+    private async Task SubmitMoveAsync(string move)
+    {
+        if (_currentPuzzle is null)
+            return;
+
+        var duration = DateTime.UtcNow - _puzzleStartedAt;
+        SubmitPuzzleAttemptResponse result;
+        try
+        {
+            result = await Api.SubmitAttemptAsync(CycleId, _currentPuzzle.Id, _currentMoveIndex, move, duration);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible d'enregistrer le coup : {ex.Message}";
+            _timer?.Stop();
+            return;
+        }
+        _lastResult = result.IsCorrect;
+
+        // Coup faux : le puzzle est terminé côté serveur, mais on laisse l'utilisateur voir le
+        // verdict et passer lui-même au suivant. Coup juste et puzzle fini : on enchaîne.
+        if (result.IsPuzzleComplete && !result.IsCorrect)
+        {
+            _failed = true;
+            _timer?.Stop();
+            return;
+        }
+
+        if (result.IsPuzzleComplete)
+        {
+            await NextPuzzleAsync();
+            return;
+        }
+
+        // Coup correct mais solution pas terminée : le serveur a déjà rejoué la réponse
+        // automatique de l'adversaire, on réaffiche juste la position résultante.
+        _boardFen = result.ResultingFen!;
+        _currentMoveIndex = result.NextMoveIndex!.Value;
+    }
+
+    private async Task StartNextCycleAsync()
+    {
+        try
+        {
+            var cycleId = await Api.StartCycleAsync(SetId);
+            Nav.NavigateTo($"/train/{SetId}/{cycleId}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de démarrer le cycle suivant : {ex.Message}";
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Stop();
+        _timer?.Dispose();
+    }
+}

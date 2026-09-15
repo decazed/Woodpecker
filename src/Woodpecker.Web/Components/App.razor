@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="Woodpecker.Web.styles.css" />
+    <HeadOutlet @rendermode="RenderMode" />
+</head>
+
+<body>
+    <Routes @rendermode="RenderMode" />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
+
+@code {
+    // Pas de pré-rendu statique : la session est restaurée depuis le localStorage (JS interop),
+    // indisponible pendant un pré-rendu. Sans ça chaque page s'afficherait d'abord "déconnectée"
+    // avant de basculer. Aucun enjeu SEO derrière un login, donc rien à perdre.
+    private static readonly InteractiveServerRenderMode RenderMode = new(prerender: false);
+}

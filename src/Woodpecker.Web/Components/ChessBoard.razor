@@ -1,0 +1,166 @@
+@* Échiquier interactif : rendu à partir d'un FEN, clic sur une pièce du camp au trait puis sur
+   une case destination -> construit un coup UCI (ex "e2e4") et le remonte au parent. Aucune
+   règle d'échecs ici (c'est l'API qui valide) : on se contente d'empêcher les clics qui ne
+   peuvent pas être un début de coup, pour que l'utilisateur comprenne ce qui se passe. *@
+
+<div class="chess-board">
+    @for (var i = 0; i < 8; i++)
+    {
+        var currentRank = Flipped ? i + 1 : 8 - i;
+        <div class="chess-rank">
+            @for (var j = 0; j < 8; j++)
+            {
+                var currentFile = Flipped ? 7 - j : j;
+                var square = $"{(char)('a' + currentFile)}{currentRank}";
+                var piece = _board[currentRank - 1, currentFile];
+                var isDark = (currentFile + currentRank) % 2 == 0;
+                var classes = "chess-square "
+                    + (isDark ? "dark" : "light")
+                    + (square == _selectedSquare ? " selected" : "")
+                    + (_lastMoveSquares.Contains(square) ? " last-move" : "")
+                    + (IsOwnPiece(piece) ? " own-piece" : "");
+
+                <div class="@classes" @onclick="() => OnSquareClicked(square)">
+                    @(piece == '\0' ? string.Empty : ToUnicode(piece).ToString())
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<p class="board-status">@_status</p>
+
+@code {
+    [Parameter, EditorRequired] public string Fen { get; set; } = string.Empty;
+    [Parameter] public bool Flipped { get; set; }
+    [Parameter] public EventCallback<string> OnMoveSubmitted { get; set; }
+
+    private string _renderedFen = string.Empty;
+    private string? _selectedSquare;
+    private char[,] _board = new char[8, 8];
+    private bool _whiteToMove = true;
+    private HashSet<string> _lastMoveSquares = [];
+    private string _status = string.Empty;
+
+    // Ne réagir qu'à un vrai changement de position : le parent se redessine chaque seconde
+    // (chrono), et sans ce garde-fou la sélection en cours serait effacée à chaque tick.
+    protected override void OnParametersSet()
+    {
+        if (Fen == _renderedFen)
+            return;
+
+        var previous = _board;
+        _board = ParseFenBoard(Fen);
+        _whiteToMove = Fen.Split(' ').ElementAtOrDefault(1) != "b";
+        _lastMoveSquares = string.IsNullOrEmpty(_renderedFen) ? [] : ChangedSquares(previous, _board);
+        _renderedFen = Fen;
+        _selectedSquare = null;
+        _status = _lastMoveSquares.Count > 0
+            ? $"L'adversaire a joué. {SideToMoveLabel()}, à toi : sélectionne une pièce."
+            : $"{SideToMoveLabel()}, à toi : sélectionne une pièce.";
+    }
+
+    private async Task OnSquareClicked(string square)
+    {
+        var piece = PieceAt(square);
+
+        if (_selectedSquare is null)
+        {
+            if (!IsOwnPiece(piece))
+            {
+                _status = piece == '\0'
+                    ? "Case vide : commence par sélectionner une de tes pièces."
+                    : "C'est une pièce adverse : sélectionne une des tiennes.";
+                return;
+            }
+
+            _selectedSquare = square;
+            _status = $"{PieceName(piece)} en {square} sélectionné(e) : choisis la case d'arrivée (ou reclique pour annuler).";
+            return;
+        }
+
+        if (_selectedSquare == square)
+        {
+            _selectedSquare = null;
+            _status = "Sélection annulée.";
+            return;
+        }
+
+        // Cliquer une autre de ses pièces change la sélection plutôt que de tenter un coup
+        // impossible (une pièce ne capture pas ses propres pièces).
+        if (IsOwnPiece(piece))
+        {
+            _selectedSquare = square;
+            _status = $"{PieceName(piece)} en {square} sélectionné(e) : choisis la case d'arrivée.";
+            return;
+        }
+
+        var move = _selectedSquare + square + PromotionSuffix(_selectedSquare, square);
+        _selectedSquare = null;
+        _status = "Vérification...";
+        await OnMoveSubmitted.InvokeAsync(move);
+    }
+
+    private char PieceAt(string square) => _board[square[1] - '1', square[0] - 'a'];
+
+    private bool IsOwnPiece(char piece) =>
+        piece != '\0' && (_whiteToMove ? char.IsUpper(piece) : char.IsLower(piece));
+
+    private string SideToMoveLabel() => _whiteToMove ? "Blancs" : "Noirs";
+
+    // Pas de sélecteur de pièce : promotion toujours en dame (choix très majoritairement
+    // correct pour des puzzles tactiques), simplification assumée.
+    private string PromotionSuffix(string from, string to)
+    {
+        var piece = PieceAt(from);
+        var toRank = to[1] - '0';
+        var isPromotion = (piece == 'P' && toRank == 8) || (piece == 'p' && toRank == 1);
+        return isPromotion ? "q" : string.Empty;
+    }
+
+    private static HashSet<string> ChangedSquares(char[,] before, char[,] after)
+    {
+        var changed = new HashSet<string>();
+        for (var rank = 0; rank < 8; rank++)
+            for (var file = 0; file < 8; file++)
+                if (before[rank, file] != after[rank, file])
+                    changed.Add($"{(char)('a' + file)}{rank + 1}");
+        return changed;
+    }
+
+    private static char[,] ParseFenBoard(string fen)
+    {
+        var board = new char[8, 8];
+        if (string.IsNullOrWhiteSpace(fen))
+            return board;
+
+        var ranks = fen.Split(' ')[0].Split('/');
+        for (var r = 0; r < 8; r++)
+        {
+            var rank = 8 - r; // ranks[0] = rangée 8
+            var file = 0;
+            foreach (var c in ranks[r])
+            {
+                if (char.IsDigit(c))
+                    file += c - '0';
+                else
+                    board[rank - 1, file++] = c;
+            }
+        }
+
+        return board;
+    }
+
+    private static string PieceName(char piece) => char.ToLower(piece) switch
+    {
+        'k' => "Roi", 'q' => "Dame", 'r' => "Tour", 'b' => "Fou", 'n' => "Cavalier", 'p' => "Pion",
+        _ => "Pièce",
+    };
+
+    private static char ToUnicode(char piece) => piece switch
+    {
+        'K' => '♔', 'Q' => '♕', 'R' => '♖', 'B' => '♗', 'N' => '♘', 'P' => '♙',
+        'k' => '♚', 'q' => '♛', 'r' => '♜', 'b' => '♝', 'n' => '♞', 'p' => '♟',
+        _ => piece,
+    };
+}

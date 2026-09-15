@@ -1,0 +1,46 @@
+@using Woodpecker.Web.Services
+
+@if (Cycles.Count == 0)
+{
+    <p class="text-muted">Aucun cycle terminé pour l'instant.</p>
+}
+else
+{
+    <table class="stats-table">
+        <thead>
+            <tr>
+                <th>Cycle</th>
+                <th>Réussite</th>
+                <th>Temps moyen</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var cycle in Cycles)
+            {
+                <tr>
+                    <td>@cycle.CycleNumber</td>
+                    <td>
+                        @cycle.SuccessCount / @cycle.AttemptCount
+                        <span class="text-muted">(@((cycle.SuccessRate * 100).ToString("0")) %)</span>
+                    </td>
+                    <td>@cycle.AverageDuration.ToString(@"mm\:ss")</td>
+                    <td>
+                        @if (cycle.CompletedAt is DateTime completedAt)
+                        {
+                            <span class="text-success">Terminé le @completedAt.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">En cours</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CycleProgressionDto> Cycles { get; set; } = [];
+}

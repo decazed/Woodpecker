@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.swp
+.DS_Store
+TestResults/
+.env
