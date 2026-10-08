@@ -4,4 +4,4 @@ public record CreatePuzzleSetRequest(string Name, IReadOnlyList<Guid> PuzzleIds)
 
 public record CreatePuzzleSetResponse(Guid Id);
 
-public record CreatePuzzleSetFromTemplateRequest(string TemplateKey);
+public record CreatePuzzleSetFromTemplateRequest(string TemplateKey, int? PuzzleCount = null);

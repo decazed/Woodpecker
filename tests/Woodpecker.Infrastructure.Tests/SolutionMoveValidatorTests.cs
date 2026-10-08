@@ -69,6 +69,20 @@ public class SolutionMoveValidatorTests
     }
 
     [Theory]
+    [InlineData("a3a4")] // case de départ vide
+    [InlineData("d7d6")] // pièce de l'adversaire (trait aux Blancs)
+    public void ValidateMove_WithNoOwnPieceOnSourceSquare_ReturnsIllegalWithoutThrowing(string submittedMove)
+    {
+        var puzzle = CreateTwoPlyPuzzle();
+        var validator = new SolutionMoveValidator();
+
+        var result = validator.ValidateMove(puzzle, moveIndex: 1, submittedMove);
+
+        result.IsLegal.Should().BeFalse();
+        result.IsCorrect.Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData("zz99")]
     [InlineData("e2")]
     [InlineData("e2e4e5")]

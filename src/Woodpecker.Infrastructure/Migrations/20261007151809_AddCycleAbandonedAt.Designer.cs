@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Woodpecker.Infrastructure;
@@ -11,9 +12,11 @@ using Woodpecker.Infrastructure;
 namespace Woodpecker.Infrastructure.Migrations
 {
     [DbContext(typeof(WoodpeckerDbContext))]
-    partial class WoodpeckerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261007151809_AddCycleAbandonedAt")]
+    partial class AddCycleAbandonedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

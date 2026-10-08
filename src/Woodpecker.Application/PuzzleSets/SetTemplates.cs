@@ -11,6 +11,13 @@ public record SetTemplate(string Key, string Name, string Description, int MinRa
 
 public static class SetTemplates
 {
+    // Nombre de puzzles proposé à l'utilisateur : 10, 20, ... 150 (150 = taille d'une tranche du catalogue seed).
+    public const int PuzzleCountStep = 10;
+    public const int MaxPuzzleCount = 150;
+
+    public static readonly IReadOnlyList<int> PuzzleCountChoices =
+        Enumerable.Range(1, MaxPuzzleCount / PuzzleCountStep).Select(i => i * PuzzleCountStep).ToList();
+
     public static readonly IReadOnlyList<SetTemplate> All =
     [
         new("debutant", "Débutant", "Mats en un coup et tactiques simples, jusqu'à 1300.", 0, 1299, 10),
@@ -22,8 +29,15 @@ public static class SetTemplates
         All.FirstOrDefault(t => string.Equals(t.Key, key, StringComparison.OrdinalIgnoreCase));
 }
 
+// PuzzleCount est le nombre par défaut ; PuzzleCountChoices liste les valeurs proposées à l'utilisateur.
 // AvailablePuzzleCount permet au client de griser un template si le catalogue est trop petit.
-public record SetTemplateDto(string Key, string Name, string Description, int PuzzleCount, int AvailablePuzzleCount);
+public record SetTemplateDto(
+    string Key,
+    string Name,
+    string Description,
+    int PuzzleCount,
+    int AvailablePuzzleCount,
+    IReadOnlyList<int> PuzzleCountChoices);
 
 public record GetSetTemplatesQuery : IRequest<IReadOnlyList<SetTemplateDto>>;
 
@@ -40,7 +54,8 @@ public class GetSetTemplatesHandler(IApplicationDbContext context)
                 t.Name,
                 t.Description,
                 t.PuzzleCount,
-                ratings.Count(r => r >= t.MinRating && r <= t.MaxRating)))
+                ratings.Count(r => r >= t.MinRating && r <= t.MaxRating),
+                SetTemplates.PuzzleCountChoices))
             .ToList();
     }
 }

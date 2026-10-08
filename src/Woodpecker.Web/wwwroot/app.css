@@ -101,6 +101,14 @@ nav.app-nav span {
     margin: 0 auto;
 }
 
+/* Vue d'entraînement : titre + carte du plateau centrés dans la page */
+
+.train-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 /* Cartes */
 
 .card {
@@ -132,6 +140,37 @@ nav.app-nav span {
     box-shadow: var(--shadow);
     padding: 0.9rem 1.25rem;
     flex-wrap: wrap;
+}
+
+.count-choices {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+
+.progress {
+    width: 12rem;
+    max-width: 100%;
+    height: 6px;
+    margin-top: 0.35rem;
+    border-radius: 3px;
+    background-color: var(--color-border);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--color-primary);
+}
+
+.card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .card-list-item strong {
@@ -257,6 +296,15 @@ label {
     background-color: var(--color-border);
 }
 
+.btn-danger {
+    background-color: var(--color-danger);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    filter: brightness(0.92);
+}
+
 .btn-success {
     background-color: var(--color-success);
     color: white;
@@ -329,6 +377,7 @@ label {
 }
 
 .chess-square {
+    position: relative;
     width: 56px;
     height: 56px;
     display: flex;
@@ -338,6 +387,122 @@ label {
     cursor: pointer;
     user-select: none;
     transition: background-color 0.1s ease;
+}
+
+.chess-piece {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* Badge de verdict (façon chess.com) : coin haut-droit de la case d'arrivée. Il reste à
+   l'intérieur de la case, car .chess-board a overflow: hidden (coins arrondis). */
+.verdict-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 22px;
+    height: 22px;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.train-main {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
+/* contain: size => le panneau ne pèse pas dans la hauteur de la ligne : c'est le plateau qui la fixe,
+   le panneau s'étire à cette hauteur et son tableau défile. min-height pour le cas où il passe à la ligne. */
+.times-panel {
+    width: 16rem;
+    min-height: 14rem;
+    margin-bottom: 0;
+    contain: size;
+    display: flex;
+    flex-direction: column;
+}
+
+.times-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.times-scroll thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--color-surface);
+}
+
+.times-panel h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+}
+
+.train-main > .card {
+    margin-bottom: 0;
+}
+
+/* Colonnes fixes : "en cours" (colspan) ne doit pas élargir les colonnes et décaler ✓/✕. */
+.times-panel table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+}
+
+.times-panel th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+}
+
+.times-panel th:nth-child(1) { width: 2.5rem; }
+.times-panel th:nth-child(2) { width: 4rem; }
+.times-panel th:nth-child(3) { width: 2rem; }
+
+.times-panel th, .times-panel td {
+    padding: 0.25rem 0.4rem;
+}
+
+.times-panel tr.time-current {
+    background-color: #f7d77440;
+    font-weight: 600;
+}
+
+.times-panel tr.time-pending {
+    color: var(--color-text-muted);
+}
+
+.times-panel .time-ok {
+    color: #3f7d2a;
+    font-weight: 600;
+}
+
+.times-panel .time-ko {
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
+.times-total {
+    margin: 0.6rem 0 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.9rem;
+}
+
+.puzzle-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2.4rem; /* hauteur de la ligne avec bouton : rien ne bouge à son apparition */
+    margin-top: 0.25rem;
 }
 
 .chess-square.light {
@@ -369,34 +534,12 @@ label {
     background-color: #f7d774;
 }
 
-.result-banner {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    padding: 0.6rem 0.9rem;
-    border-radius: 8px;
-    margin-bottom: 0.75rem;
-}
-
-.result-banner.success {
-    background-color: #e3f4e8;
-    color: #1f6b38;
-}
-
-.result-banner.danger {
-    background-color: #fbe6e3;
-    color: #8f2a1f;
-}
-
-.result-banner .btn {
-    margin-left: auto;
-}
-
 .board-status {
     margin: 0.6rem 0 0;
-    min-height: 1.5em;
+    min-height: 3em; /* deux lignes réservées : le texte de statut peut passer à la ligne */
     font-size: 0.9rem;
+    width: 0;
+    min-width: 100%;
 }
 
 /* Erreurs Blazor par défaut */
@@ -432,4 +575,22 @@ label {
         flex-wrap: wrap;
         gap: 0.75rem;
     }
+}
+
+.auth-page {
+    max-width: 400px;
+    margin: 3rem auto 0;
+    text-align: center;
+}
+
+.auth-page .card {
+    text-align: left;
+}
+
+.auth-page-wide {
+    max-width: 560px;
+}
+
+.auth-page-wide .card {
+    text-align: center;
 }

@@ -37,7 +37,7 @@ public class PuzzleSetsController(ISender sender) : ControllerBase
         CancellationToken cancellationToken)
     {
         var id = await sender.Send(
-            new CreatePuzzleSetFromTemplateCommand(request.TemplateKey, User.GetUserId()),
+            new CreatePuzzleSetFromTemplateCommand(request.TemplateKey, User.GetUserId(), request.PuzzleCount),
             cancellationToken);
 
         return CreatedAtAction(nameof(GetById), new { id }, new CreatePuzzleSetResponse(id));
@@ -55,6 +55,13 @@ public class PuzzleSetsController(ISender sender) : ControllerBase
     {
         var set = await sender.Send(new GetPuzzleSetByIdQuery(id, User.GetUserId()), cancellationToken);
         return Ok(set);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await sender.Send(new DeletePuzzleSetCommand(id, User.GetUserId()), cancellationToken);
+        return NoContent();
     }
 
     [HttpGet("{id:guid}/progression")]

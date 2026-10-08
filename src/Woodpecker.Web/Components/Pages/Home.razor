@@ -6,10 +6,11 @@
 
 <PageTitle>Woodpecker</PageTitle>
 
+<div class="auth-page auth-page-wide">
 <h1>Woodpecker</h1>
 <p>Entraînement tactique aux échecs par répétition de sets de puzzles, de plus en plus vite à chaque cycle.</p>
 
-<div class="card" style="max-width: 480px;">
+<div class="card">
     @if (AuthState.IsAuthenticated)
     {
         <p style="margin-top: 0;">Content de te revoir, @AuthState.Email.</p>
@@ -20,6 +21,7 @@
         <p style="margin-top: 0;">Connecte-toi pour créer ou reprendre un set de puzzles.</p>
         <button class="btn btn-primary" @onclick='() => Nav.NavigateTo("/login")'>Se connecter</button>
     }
+</div>
 </div>
 
 @code {

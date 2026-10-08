@@ -59,6 +59,11 @@ public class SubmitPuzzleAttemptHandler(IApplicationDbContext context, IMoveVali
         if (cycle.UserId != request.UserId)
             throw new NotFoundException($"Cycle {request.TrainingCycleId} introuvable.");
 
+        // Sans ce garde-fou, les demi-coups corrects d'un cycle abandonné passeraient (seul
+        // RecordAttempt, appelé en fin de puzzle, refuserait).
+        if (cycle.IsAbandoned)
+            throw new InvalidOperationException("Ce cycle a été abandonné.");
+
         var puzzle = await context.Puzzles.FindAsync([request.PuzzleId], cancellationToken)
             ?? throw new NotFoundException($"Puzzle {request.PuzzleId} introuvable.");
 

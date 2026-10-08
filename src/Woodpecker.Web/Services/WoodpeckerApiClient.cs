@@ -103,10 +103,10 @@ public class WoodpeckerApiClient(HttpClient http, AuthState authState)
         return await response.Content.ReadFromJsonAsync<IReadOnlyList<SetTemplateDto>>() ?? [];
     }
 
-    public async Task<Guid> CreateSetFromTemplateAsync(string templateKey)
+    public async Task<Guid> CreateSetFromTemplateAsync(string templateKey, int puzzleCount)
     {
         var request = CreateRequest(HttpMethod.Post, "api/puzzle-sets/from-template");
-        request.Content = JsonContent.Create(new CreatePuzzleSetFromTemplateRequest(templateKey));
+        request.Content = JsonContent.Create(new CreatePuzzleSetFromTemplateRequest(templateKey, puzzleCount));
         var response = await SendAsync(request);
         var body = await response.Content.ReadFromJsonAsync<CreatePuzzleSetResponse>();
         return body!.Id;
@@ -140,6 +140,18 @@ public class WoodpeckerApiClient(HttpClient http, AuthState authState)
         var response = await SendAsync(request);
         return (await response.Content.ReadFromJsonAsync<SubmitPuzzleAttemptResponse>())!;
     }
+
+    public async Task<CycleDetailDto?> GetCycleDetailAsync(Guid cycleId)
+    {
+        var response = await SendAsync(CreateRequest(HttpMethod.Get, $"api/training-cycles/{cycleId}/detail"));
+        return await response.Content.ReadFromJsonAsync<CycleDetailDto>();
+    }
+
+    public async Task AbandonCycleAsync(Guid cycleId) =>
+        await SendAsync(CreateRequest(HttpMethod.Post, $"api/training-cycles/{cycleId}/abandon"));
+
+    public async Task DeleteSetAsync(Guid setId) =>
+        await SendAsync(CreateRequest(HttpMethod.Delete, $"api/puzzle-sets/{setId}"));
 
     public async Task<CycleStatsDto?> GetCycleStatsAsync(Guid cycleId)
     {

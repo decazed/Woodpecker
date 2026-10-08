@@ -7,10 +7,11 @@
 
 <PageTitle>Connexion</PageTitle>
 
+<div class="auth-page">
 <h1>Woodpecker</h1>
 <p>Entraînement tactique aux échecs par répétition de sets de puzzles.</p>
 
-<div class="card" style="max-width: 400px;">
+<div class="card">
     <div class="mb-3">
         <label>Email</label>
         <input class="form-control" @bind="_email" />
@@ -25,10 +26,11 @@
         <p class="text-danger">@_error</p>
     }
 
-    <div style="display: flex; gap: 0.6rem;">
+    <div style="display: flex; gap: 0.6rem; justify-content: center;">
         <button class="btn btn-primary" @onclick="LoginAsync">Se connecter</button>
         <button class="btn btn-secondary" @onclick="RegisterAsync">Créer un compte</button>
     </div>
+</div>
 </div>
 
 @code {

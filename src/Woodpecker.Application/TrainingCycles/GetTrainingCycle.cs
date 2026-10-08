@@ -12,6 +12,7 @@ public record TrainingCycleDto(
     Guid PuzzleSetId,
     int CycleNumber,
     bool IsCompleted,
+    bool IsAbandoned,
     IReadOnlyList<Guid> AttemptedPuzzleIds);
 
 public record GetTrainingCycleQuery(Guid CycleId, Guid UserId) : IRequest<TrainingCycleDto>;
@@ -33,6 +34,6 @@ public class GetTrainingCycleHandler(IApplicationDbContext context)
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return new TrainingCycleDto(cycle.Id, cycle.PuzzleSetId, cycle.CycleNumber, cycle.IsCompleted, attemptedPuzzleIds);
+        return new TrainingCycleDto(cycle.Id, cycle.PuzzleSetId, cycle.CycleNumber, cycle.IsCompleted, cycle.IsAbandoned, attemptedPuzzleIds);
     }
 }

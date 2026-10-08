@@ -31,6 +31,13 @@ public class TrainingCyclesController(ISender sender) : ControllerBase
         return Ok(cycle);
     }
 
+    [HttpGet("{id:guid}/detail")]
+    public async Task<ActionResult<CycleDetailDto>> GetDetail(Guid id, CancellationToken cancellationToken)
+    {
+        var detail = await sender.Send(new GetCycleDetailQuery(id, User.GetUserId()), cancellationToken);
+        return Ok(detail);
+    }
+
     [HttpPost("{id:guid}/attempts")]
     public async Task<ActionResult<SubmitPuzzleAttemptResponse>> SubmitAttempt(
         Guid id,
@@ -42,6 +49,13 @@ public class TrainingCyclesController(ISender sender) : ControllerBase
             cancellationToken);
 
         return Ok(new SubmitPuzzleAttemptResponse(result.IsCorrect, result.IsPuzzleComplete, result.ResultingFen, result.NextMoveIndex));
+    }
+
+    [HttpPost("{id:guid}/abandon")]
+    public async Task<IActionResult> Abandon(Guid id, CancellationToken cancellationToken)
+    {
+        await sender.Send(new AbandonTrainingCycleCommand(id, User.GetUserId()), cancellationToken);
+        return NoContent();
     }
 
     [HttpGet("{id:guid}/stats")]

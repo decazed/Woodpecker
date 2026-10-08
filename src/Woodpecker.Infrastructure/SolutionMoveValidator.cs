@@ -38,7 +38,7 @@ public class SolutionMoveValidator : IMoveValidator
             return new MoveValidationResult(IsLegal: false, IsCorrect: false, isLastMove, ResultingFen: null);
         }
 
-        if (!board.IsValidMove(move))
+        if (!IsLegal(board, move))
             return new MoveValidationResult(IsLegal: false, IsCorrect: false, isLastMove, ResultingFen: null);
 
         var isCorrect = string.Equals(
@@ -59,6 +59,21 @@ public class SolutionMoveValidator : IMoveValidator
         }
 
         return new MoveValidationResult(IsLegal: true, IsCorrect: true, isLastMove, resultingFen);
+    }
+
+    // IsValidMove ne renvoie pas toujours false : il lève ChessException quand la case de
+    // départ est vide (ou pas au trait). Pour un coup soumis par un client, c'est un simple
+    // coup illégal, pas une erreur serveur.
+    private static bool IsLegal(ChessBoard board, Move move)
+    {
+        try
+        {
+            return board.IsValidMove(move);
+        }
+        catch (ChessException)
+        {
+            return false;
+        }
     }
 
     // Applique un coup connu pour être légal (coup de la solution, ou coup déjà validé par

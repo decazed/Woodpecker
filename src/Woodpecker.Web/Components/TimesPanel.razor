@@ -1,0 +1,113 @@
+@using Woodpecker.Web.Services
+@inject IJSRuntime JS
+
+@* Temps par puzzle du cycle en cours, avec l'écart par rapport au cycle précédent (méthode
+   Woodpecker : aller plus vite à chaque cycle). Purement présentationnel : Train.razor
+   fournit les données et se redessine chaque seconde (chrono du puzzle courant). *@
+
+<aside class="card times-panel">
+    <h2>Temps</h2>
+    <div class="times-scroll" @ref="_scrollContainer">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Temps</th>
+                <th></th>
+                <th>@(PreviousCycleNumber is int n ? $"vs C{n}" : "")</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < PuzzleIds.Count; i++)
+            {
+                var puzzleId = PuzzleIds[i];
+                var isCurrent = puzzleId == CurrentPuzzleId && !Attempts.ContainsKey(puzzleId);
+
+                if (Attempts.TryGetValue(puzzleId, out var attempt))
+                {
+                    var delta = DeltaSeconds(attempt, puzzleId);
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>@Format(attempt.Duration)</td>
+                        <td class="@(attempt.IsSuccess ? "time-ok" : "time-ko")">@(attempt.IsSuccess ? "✓" : "✕")</td>
+                        <td class="@DeltaClass(delta)">@DeltaText(delta)</td>
+                    </tr>
+                }
+                else if (isCurrent)
+                {
+                    <tr class="time-current">
+                        <td>@(i + 1)</td>
+                        <td>@Format(Elapsed)</td>
+                        <td colspan="2">en cours</td>
+                    </tr>
+                }
+                else
+                {
+                    <tr class="time-pending">
+                        <td>@(i + 1)</td>
+                        <td>—</td>
+                        <td colspan="2"></td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+    </div>
+    @if (Attempts.Count > 0)
+    {
+        <p class="times-total">Total : <strong>@Format(TotalDone)</strong></p>
+    }
+</aside>
+
+@code {
+    // Dans l'ordre du set : une ligne par puzzle, faits ou non.
+    [Parameter, EditorRequired] public IReadOnlyList<Guid> PuzzleIds { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyDictionary<Guid, CycleAttemptDto> Attempts { get; set; } = new Dictionary<Guid, CycleAttemptDto>();
+    [Parameter] public IReadOnlyDictionary<Guid, CycleAttemptDto> PreviousAttempts { get; set; } = new Dictionary<Guid, CycleAttemptDto>();
+    [Parameter] public int? PreviousCycleNumber { get; set; }
+    [Parameter] public Guid? CurrentPuzzleId { get; set; }
+    [Parameter] public TimeSpan Elapsed { get; set; }
+
+    private ElementReference _scrollContainer;
+    private Guid? _lastScrolledPuzzleId;
+
+    // Pas à chaque rendu (le chrono redessine chaque seconde) : seulement quand le puzzle en cours change.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (CurrentPuzzleId == _lastScrolledPuzzleId)
+            return;
+
+        _lastScrolledPuzzleId = CurrentPuzzleId;
+        await JS.InvokeVoidAsync("woodpeckerScrollToCurrent", _scrollContainer);
+    }
+
+    private TimeSpan TotalDone => Attempts.Values.Aggregate(TimeSpan.Zero, (sum, a) => sum + a.Duration);
+
+    // Un écart n'a de sens que si les deux tentatives ont réussi : le temps d'un échec ne
+    // mesure que le moment de la première erreur, pas la résolution du puzzle.
+    private int? DeltaSeconds(CycleAttemptDto attempt, Guid puzzleId)
+    {
+        if (!attempt.IsSuccess || !PreviousAttempts.TryGetValue(puzzleId, out var previous) || !previous.IsSuccess)
+            return null;
+
+        return (int)Math.Round((attempt.Duration - previous.Duration).TotalSeconds);
+    }
+
+    private static string DeltaText(int? delta)
+    {
+        if (delta is not int d)
+            return "";
+        if (d == 0)
+            return "=";
+        return d < 0 ? $"−{-d} s" : $"+{d} s";
+    }
+
+    private static string DeltaClass(int? delta)
+    {
+        if (delta is not int d || d == 0)
+            return "";
+        return d < 0 ? "time-ok" : "time-ko";
+    }
+
+    private static string Format(TimeSpan time) => $"{(int)time.TotalMinutes:00}:{time.Seconds:00}";
+}

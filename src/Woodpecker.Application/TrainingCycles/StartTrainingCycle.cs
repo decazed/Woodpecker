@@ -36,13 +36,15 @@ public class StartTrainingCycleHandler(IApplicationDbContext context)
         // La méthode Woodpecker enchaîne des cycles complets : on ne peut pas en démarrer
         // un nouveau tant que le précédent n'est pas clôturé (cf. TrainingCycle.Complete,
         // déclenché automatiquement par SubmitPuzzleAttemptHandler).
-        if (existingCycles.Any(c => !c.IsCompleted))
+        if (existingCycles.Any(c => c.IsActive))
             throw new InvalidOperationException("Un cycle est déjà en cours pour ce set.");
 
         var cycle = TrainingCycle.Start(
             request.PuzzleSetId,
             request.UserId,
-            cycleNumber: existingCycles.Count + 1,
+            // Les cycles abandonnés ne comptent pas : la numérotation reste celle des cycles menés
+            // à terme (+ le nouveau), sinon "Cycle 3" apparaîtrait après un seul cycle complet.
+            cycleNumber: existingCycles.Count(c => !c.IsAbandoned) + 1,
             startedAt: DateTime.UtcNow);
 
         context.TrainingCycles.Add(cycle);

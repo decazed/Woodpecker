@@ -24,7 +24,7 @@ public class GetFrequentlyMissedPuzzlesHandler(IApplicationDbContext context)
             throw new NotFoundException($"Set {request.PuzzleSetId} introuvable.");
 
         var cycleIds = context.TrainingCycles
-            .Where(tc => tc.PuzzleSetId == request.PuzzleSetId)
+            .Where(tc => tc.PuzzleSetId == request.PuzzleSetId && tc.AbandonedAt == null)
             .Select(tc => tc.Id);
 
         // GroupBy traduit en GROUP BY + COUNT côté SQL : l'agrégation se fait en base,

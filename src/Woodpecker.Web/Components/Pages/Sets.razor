@@ -24,17 +24,39 @@ else
         <ul class="card-list">
             @foreach (var template in _templates)
             {
-                var available = template.AvailablePuzzleCount >= template.PuzzleCount;
                 <li class="card-list-item">
                     <div>
                         <strong>@template.Name</strong>
-                        <div class="meta">@template.Description · @template.PuzzleCount puzzles</div>
+                        <div class="meta">@template.Description</div>
+                        @if (_choosingTemplate == template.Key)
+                        {
+                            <div class="count-choices" role="group" aria-label="Nombre de puzzles">
+                                <span class="meta">Nombre de puzzles :</span>
+                                @foreach (var count in template.PuzzleCountChoices)
+                                {
+                                    <button class="btn btn-sm btn-secondary"
+                                            disabled="@(_busy || count > template.AvailablePuzzleCount)"
+                                            @onclick="() => StartFromTemplateAsync(template.Key, count)">
+                                        @count
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
-                    <button class="btn btn-sm btn-primary"
-                            disabled="@(!available || _busy)"
-                            @onclick="() => StartFromTemplateAsync(template.Key)">
-                        Commencer
-                    </button>
+                    <div class="card-actions">
+                        @if (_choosingTemplate == template.Key)
+                        {
+                            <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => _choosingTemplate = null">Annuler</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-primary"
+                                    disabled="@(_busy || template.AvailablePuzzleCount < (template.PuzzleCountChoices.FirstOrDefault()))"
+                                    @onclick="() => _choosingTemplate = template.Key">
+                                Commencer
+                            </button>
+                        }
+                    </div>
                 </li>
             }
         </ul>
@@ -52,19 +74,40 @@ else
                 <li class="card-list-item">
                     <div>
                         <strong>@set.Name</strong>
-                        <div class="meta">@set.PuzzleCount puzzle(s)@(set.ActiveCycleId is not null ? " · cycle en cours" : "")</div>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => ToggleProgressionAsync(set.Id)">
-                            @(_progressions.ContainsKey(set.Id) ? "Masquer" : "Progression")
-                        </button>
-                        @if (set.ActiveCycleId is Guid activeCycleId)
+                        @if (set.ActiveCycleId is not null)
                         {
-                            <button class="btn btn-sm btn-primary" disabled="@_busy" @onclick="() => ResumeCycle(set.Id, activeCycleId)">Reprendre le cycle</button>
+                            <div class="meta">Cycle en cours · @set.ActiveCycleAttemptedCount / @set.PuzzleCount puzzles</div>
+                            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="@set.PuzzleCount" aria-valuenow="@set.ActiveCycleAttemptedCount">
+                                <div class="progress-fill" style="width: @(100 * set.ActiveCycleAttemptedCount / Math.Max(set.PuzzleCount, 1))%"></div>
+                            </div>
                         }
                         else
                         {
-                            <button class="btn btn-sm btn-primary" disabled="@_busy" @onclick="() => StartCycleAsync(set.Id)">Nouveau cycle</button>
+                            <div class="meta">@set.PuzzleCount puzzle(s)</div>
+                        }
+                    </div>
+                    <div class="card-actions">
+                        @if (_pending is { } pending && pending.SetId == set.Id)
+                        {
+                            <span class="meta">@(pending.Action == PendingAction.Abandon ? "Abandonner ce cycle ?" : "Supprimer ce set et son historique ?")</span>
+                            <button class="btn btn-sm btn-danger" disabled="@_busy" @onclick="ConfirmPendingAsync">Confirmer</button>
+                            <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => _pending = null">Annuler</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => ToggleProgressionAsync(set.Id)">
+                                @(_progressions.ContainsKey(set.Id) ? "Masquer" : "Progression")
+                            </button>
+                            @if (set.ActiveCycleId is Guid activeCycleId)
+                            {
+                                <button class="btn btn-sm btn-primary" disabled="@_busy" @onclick="() => ResumeCycle(set.Id, activeCycleId)">Reprendre le cycle</button>
+                                <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => _pending = new(set.Id, activeCycleId, PendingAction.Abandon)">Abandonner le cycle</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => StartCycleAsync(set.Id)">Nouveau cycle</button>
+                            }
+                            <button class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => _pending = new(set.Id, null, PendingAction.Delete)">Supprimer</button>
                         }
                     </div>
                     @if (_progressions.TryGetValue(set.Id, out var progression))
@@ -91,6 +134,14 @@ else
     private string? _error;
     private bool _busy;
 
+    // Modèle dont l'utilisateur est en train de choisir le nombre de puzzles (un seul à la fois).
+    private string? _choosingTemplate;
+
+    // Action destructive en attente de confirmation (une seule à la fois, sur une ligne).
+    private enum PendingAction { Abandon, Delete }
+    private record PendingConfirmation(Guid SetId, Guid? CycleId, PendingAction Action);
+    private PendingConfirmation? _pending;
+
     protected override async Task OnInitializedAsync()
     {
         await AuthState.EnsureRestoredAsync();
@@ -110,14 +161,14 @@ else
         }
     }
 
-    // Un clic = un set créé à partir du modèle + son premier cycle démarré.
-    private async Task StartFromTemplateAsync(string templateKey)
+    // Un clic sur un nombre = un set créé à partir du modèle + son premier cycle démarré.
+    private async Task StartFromTemplateAsync(string templateKey, int puzzleCount)
     {
         _error = null;
         _busy = true;
         try
         {
-            var setId = await Api.CreateSetFromTemplateAsync(templateKey);
+            var setId = await Api.CreateSetFromTemplateAsync(templateKey, puzzleCount);
             var cycleId = await Api.StartCycleAsync(setId);
             Nav.NavigateTo($"/train/{setId}/{cycleId}");
         }
@@ -140,6 +191,33 @@ else
         catch (Exception ex)
         {
             _error = $"Impossible de démarrer le cycle : {ex.Message}";
+            _busy = false;
+        }
+    }
+
+    private async Task ConfirmPendingAsync()
+    {
+        if (_pending is not { } pending)
+            return;
+
+        _error = null;
+        _busy = true;
+        try
+        {
+            if (pending.Action == PendingAction.Abandon)
+                await Api.AbandonCycleAsync(pending.CycleId!.Value);
+            else
+                await Api.DeleteSetAsync(pending.SetId);
+
+            _sets = await Api.GetMySetsAsync();
+            _pending = null;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Action impossible : {ex.Message}";
+        }
+        finally
+        {
             _busy = false;
         }
     }

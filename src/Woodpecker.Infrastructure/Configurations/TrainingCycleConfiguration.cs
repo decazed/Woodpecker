@@ -17,6 +17,7 @@ public class TrainingCycleConfiguration : IEntityTypeConfiguration<TrainingCycle
         builder.Property(tc => tc.UserId).IsRequired();
         builder.Property(tc => tc.CycleNumber).IsRequired();
         builder.Property(tc => tc.StartedAt).IsRequired();
+        builder.Property(tc => tc.AbandonedAt); // nullable : renseigné uniquement si le cycle est abandonné
 
         builder.HasIndex(tc => tc.PuzzleSetId);
         builder.HasIndex(tc => tc.UserId);

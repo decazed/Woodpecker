@@ -18,10 +18,28 @@
                     + (isDark ? "dark" : "light")
                     + (square == _selectedSquare ? " selected" : "")
                     + (_lastMoveSquares.Contains(square) ? " last-move" : "")
-                    + (IsOwnPiece(piece) ? " own-piece" : "");
+                    + (IsOwnPiece(piece) && !Locked ? " own-piece" : "");
 
                 <div class="@classes" @onclick="() => OnSquareClicked(square)">
-                    @(piece == '\0' ? string.Empty : ToUnicode(piece).ToString())
+                    @if (piece != '\0')
+                    {
+                        <img class="chess-piece" src="@ToImagePath(piece)" alt="@PieceName(piece)" draggable="false" />
+                    }
+                    @if (Verdict?.Square == square)
+                    {
+                        <svg class="verdict-badge" viewBox="0 0 24 24" role="img" aria-label="@(Verdict.IsCorrect ? "Coup correct" : "Coup incorrect")">
+                            @if (Verdict.IsCorrect)
+                            {
+                                <circle cx="12" cy="12" r="12" fill="#5d9948" />
+                                <path d="M6.5 12.5l3.8 3.8 7.2-8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            }
+                            else
+                            {
+                                <circle cx="12" cy="12" r="12" fill="#d33f3f" />
+                                <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" />
+                            }
+                        </svg>
+                    }
                 </div>
             }
         </div>
@@ -34,6 +52,8 @@
     [Parameter, EditorRequired] public string Fen { get; set; } = string.Empty;
     [Parameter] public bool Flipped { get; set; }
     [Parameter] public EventCallback<string> OnMoveSubmitted { get; set; }
+    [Parameter] public MoveVerdict? Verdict { get; set; }
+    [Parameter] public bool Locked { get; set; }
 
     private string _renderedFen = string.Empty;
     private string? _selectedSquare;
@@ -62,6 +82,9 @@
 
     private async Task OnSquareClicked(string square)
     {
+        if (Locked)
+            return;
+
         var piece = PieceAt(square);
 
         if (_selectedSquare is null)
@@ -96,9 +119,23 @@
         }
 
         var move = _selectedSquare + square + PromotionSuffix(_selectedSquare, square);
+        PlayLocally(_selectedSquare, square, move);
         _selectedSquare = null;
         _status = "Vérification...";
         await OnMoveSubmitted.InvokeAsync(move);
+    }
+
+    // Affichage optimiste : la pièce arrive tout de suite sur sa case, pour que le badge de
+    // verdict ait une pièce sous lui. Purement visuel (pas de roque/prise en passant) ; le FEN
+    // renvoyé par le serveur écrase ce plateau dès qu'il change.
+    private void PlayLocally(string from, string to, string move)
+    {
+        var piece = PieceAt(from);
+        if (move.Length == 5)
+            piece = char.IsUpper(piece) ? char.ToUpperInvariant(move[4]) : char.ToLowerInvariant(move[4]);
+
+        _board[to[1] - '1', to[0] - 'a'] = piece;
+        _board[from[1] - '1', from[0] - 'a'] = '\0';
     }
 
     private char PieceAt(string square) => _board[square[1] - '1', square[0] - 'a'];
@@ -157,10 +194,7 @@
         _ => "Pièce",
     };
 
-    private static char ToUnicode(char piece) => piece switch
-    {
-        'K' => '♔', 'Q' => '♕', 'R' => '♖', 'B' => '♗', 'N' => '♘', 'P' => '♙',
-        'k' => '♚', 'q' => '♛', 'r' => '♜', 'b' => '♝', 'n' => '♞', 'p' => '♟',
-        _ => piece,
-    };
+    // Chemin absolu (slash initial) pour rester valide quelle que soit l'URL de la page.
+    private static string ToImagePath(char piece) =>
+        $"/pieces/{(char.IsUpper(piece) ? 'w' : 'b')}{char.ToUpperInvariant(piece)}.svg";
 }

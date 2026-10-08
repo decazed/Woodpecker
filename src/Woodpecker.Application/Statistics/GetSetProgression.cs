@@ -26,7 +26,7 @@ public class GetSetProgressionHandler(IApplicationDbContext context)
 
         var cyclesWithAttempts = await (
             from cycle in context.TrainingCycles
-            where cycle.PuzzleSetId == request.PuzzleSetId
+            where cycle.PuzzleSetId == request.PuzzleSetId && cycle.AbandonedAt == null
             join attempt in context.PuzzleAttempts on cycle.Id equals attempt.TrainingCycleId into attemptsGroup
             orderby cycle.CycleNumber
             select new

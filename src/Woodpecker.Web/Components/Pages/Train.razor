@@ -47,30 +47,33 @@ else if (_currentIndex >= _puzzleIds.Count)
 }
 else
 {
-    <div style="display: flex; align-items: baseline; gap: 1rem;">
-        <h1 style="margin-bottom: 0.5rem;">Puzzle @(_currentIndex + 1) / @_puzzleIds.Count</h1>
-        <span class="text-muted">⏱ @Elapsed.ToString(@"mm\:ss")</span>
-    </div>
-
-    @if (_currentPuzzle is not null)
-    {
-        <div class="card" style="display: inline-block;">
-            @if (_failed)
-            {
-                <div class="result-banner danger">
-                    <strong>Incorrect.</strong> Ce puzzle est compté comme raté pour ce cycle.
-                    <button class="btn btn-sm btn-primary" @onclick="NextPuzzleAsync">Puzzle suivant →</button>
-                </div>
-            }
-            else if (_lastResult == true)
-            {
-                <div class="result-banner success"><strong>Correct !</strong></div>
-            }
-
-            <ChessBoard @key="_currentPuzzle.Id" Fen="@_boardFen" Flipped="_boardFlipped" OnMoveSubmitted="SubmitMoveAsync" />
-            <p class="text-muted" style="margin: 0.5rem 0 0;">Rating : @_currentPuzzle.Rating</p>
+    <div class="train-layout">
+        <div style="display: flex; align-items: baseline; gap: 1rem;">
+            <h1 style="margin-bottom: 0.5rem;">Puzzle @(_alreadyAttemptedCount + _currentIndex + 1) / @(_alreadyAttemptedCount + _puzzleIds.Count)</h1>
+            <span class="text-muted">⏱ @Elapsed.ToString(@"mm\:ss")</span>
         </div>
-    }
+
+        @if (_currentPuzzle is not null)
+        {
+          <div class="train-main">
+            <div class="card">
+                @* @key : nouvelle instance par puzzle, sinon le plateau surligne la différence entre deux positions sans rapport. *@
+                <ChessBoard @key="_currentPuzzle.Id" Fen="@_boardFen" Flipped="_boardFlipped" Verdict="_verdict"
+                            Locked="_busy || _failed" OnMoveSubmitted="SubmitMoveAsync" />
+                <div class="puzzle-footer">
+                    <span class="text-muted">Rating : @_currentPuzzle.Rating</span>
+                    @if (_failed)
+                    {
+                        <button class="btn btn-sm btn-primary" @onclick="NextPuzzleAsync">Puzzle suivant →</button>
+                    }
+                </div>
+            </div>
+
+            <TimesPanel PuzzleIds="_setPuzzleIds" Attempts="_attempts" PreviousAttempts="_previousAttempts"
+                        PreviousCycleNumber="_previousCycleNumber" CurrentPuzzleId="_currentPuzzle.Id" Elapsed="Elapsed" />
+          </div>
+        }
+    </div>
 }
 
 @code {
@@ -79,11 +82,23 @@ else
 
     private List<Guid>? _puzzleIds;
     private int _currentIndex;
+
+    // À la reprise d'un cycle, _puzzleIds ne contient que les puzzles restants : on garde le
+    // nombre de ceux déjà tentés pour afficher la vraie position ("4 / 10", pas "1 / 7").
+    private int _alreadyAttemptedCount;
+
+    // Données du panneau des temps : set complet (ordre d'origine), tentatives de ce cycle et
+    // du cycle précédent terminé, indexées par puzzle.
+    private List<Guid> _setPuzzleIds = [];
+    private Dictionary<Guid, CycleAttemptDto> _attempts = [];
+    private Dictionary<Guid, CycleAttemptDto> _previousAttempts = [];
+    private int? _previousCycleNumber;
     private PuzzleDto? _currentPuzzle;
     private string _boardFen = string.Empty;
     private bool _boardFlipped;
     private int _currentMoveIndex;
-    private bool? _lastResult;
+    private MoveVerdict? _verdict;
+    private bool _busy;
     private bool _failed;
     private DateTime _puzzleStartedAt;
     private CycleStatsDto? _stats;
@@ -115,17 +130,25 @@ else
         try
         {
             var cycle = await Api.GetCycleAsync(CycleId);
+            if (cycle?.IsAbandoned == true)
+            {
+                _error = "Ce cycle a été abandonné.";
+                return;
+            }
+
             var set = await Api.GetSetAsync(SetId);
 
             // Reprise d'un cycle en cours : on ne repropose pas les puzzles déjà tentés
             // (une seule tentative par puzzle et par cycle, cf. SubmitPuzzleAttemptHandler).
-            // On garde la liste complète (pour un compteur "X/Y" correct) et on reprend à la
-            // première position non tentée, au lieu de retirer les puzzles déjà faits de la
-            // liste (ce qui ferait repartir le compteur à 1).
             var attempted = cycle?.AttemptedPuzzleIds.ToHashSet() ?? [];
-            _puzzleIds = (set?.PuzzleIds ?? []).ToList();
-            var firstPending = _puzzleIds.FindIndex(id => !attempted.Contains(id));
-            _currentIndex = firstPending < 0 ? _puzzleIds.Count : firstPending;
+            _puzzleIds = (set?.PuzzleIds ?? []).Where(id => !attempted.Contains(id)).ToList();
+            _alreadyAttemptedCount = (set?.PuzzleIds.Count ?? 0) - _puzzleIds.Count;
+            _setPuzzleIds = set?.PuzzleIds.ToList() ?? [];
+
+            var detail = await Api.GetCycleDetailAsync(CycleId);
+            _attempts = detail?.Attempts.ToDictionary(a => a.PuzzleId) ?? [];
+            _previousAttempts = detail?.PreviousAttempts.ToDictionary(a => a.PuzzleId) ?? [];
+            _previousCycleNumber = detail?.PreviousCycleNumber;
 
             await LoadCurrentPuzzleAsync();
         }
@@ -165,7 +188,7 @@ else
 
     private async Task LoadCurrentPuzzleAsync()
     {
-        _lastResult = null;
+        _verdict = null;
         _failed = false;
 
         if (_puzzleIds is null || _currentIndex >= _puzzleIds.Count)
@@ -186,44 +209,65 @@ else
         _puzzleStartedAt = DateTime.UtcNow;
     }
 
+    // Pause pendant laquelle le badge de verdict reste visible avant d'enchaîner (réponse
+    // adverse ou puzzle suivant).
+    private const int VerdictDisplayMs = 700;
+
     private async Task SubmitMoveAsync(string move)
     {
-        if (_currentPuzzle is null)
+        if (_currentPuzzle is null || _busy)
             return;
 
-        var duration = DateTime.UtcNow - _puzzleStartedAt;
-        SubmitPuzzleAttemptResponse result;
+        _busy = true;
         try
         {
-            result = await Api.SubmitAttemptAsync(CycleId, _currentPuzzle.Id, _currentMoveIndex, move, duration);
-        }
-        catch (Exception ex)
-        {
-            _error = $"Impossible d'enregistrer le coup : {ex.Message}";
-            _timer?.Stop();
-            return;
-        }
-        _lastResult = result.IsCorrect;
+            var duration = DateTime.UtcNow - _puzzleStartedAt;
+            SubmitPuzzleAttemptResponse result;
+            try
+            {
+                result = await Api.SubmitAttemptAsync(CycleId, _currentPuzzle.Id, _currentMoveIndex, move, duration);
+            }
+            catch (Exception ex)
+            {
+                _error = $"Impossible d'enregistrer le coup : {ex.Message}";
+                _timer?.Stop();
+                return;
+            }
 
-        // Coup faux : le puzzle est terminé côté serveur, mais on laisse l'utilisateur voir le
-        // verdict et passer lui-même au suivant. Coup juste et puzzle fini : on enchaîne.
-        if (result.IsPuzzleComplete && !result.IsCorrect)
-        {
-            _failed = true;
-            _timer?.Stop();
-            return;
-        }
+            if (result.IsPuzzleComplete)
+                _attempts[_currentPuzzle.Id] = new CycleAttemptDto(_currentPuzzle.Id, result.IsCorrect, duration);
 
-        if (result.IsPuzzleComplete)
-        {
-            await NextPuzzleAsync();
-            return;
-        }
+            // Le badge se pose sur la case d'arrivée du coup joué (move = "e2e4" -> "e4").
+            _verdict = new MoveVerdict(move[2..4], result.IsCorrect);
 
-        // Coup correct mais solution pas terminée : le serveur a déjà rejoué la réponse
-        // automatique de l'adversaire, on réaffiche juste la position résultante.
-        _boardFen = result.ResultingFen!;
-        _currentMoveIndex = result.NextMoveIndex!.Value;
+            // Coup faux : le puzzle est terminé côté serveur, mais on laisse l'utilisateur voir le
+            // verdict et passer lui-même au suivant (plateau verrouillé, badge rouge conservé).
+            if (result.IsPuzzleComplete && !result.IsCorrect)
+            {
+                _failed = true;
+                _timer?.Stop();
+                return;
+            }
+
+            StateHasChanged();
+            await Task.Delay(VerdictDisplayMs);
+            _verdict = null;
+
+            if (result.IsPuzzleComplete)
+            {
+                await NextPuzzleAsync();
+                return;
+            }
+
+            // Coup correct mais solution pas terminée : le serveur a déjà rejoué la réponse
+            // automatique de l'adversaire, on réaffiche juste la position résultante.
+            _boardFen = result.ResultingFen!;
+            _currentMoveIndex = result.NextMoveIndex!.Value;
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task StartNextCycleAsync()

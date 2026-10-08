@@ -82,4 +82,51 @@ public class TrainingCycleTests
 
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public void Abandon_OnActiveCycle_MarksItAbandonedAndInactive()
+    {
+        var cycle = StartCycle();
+
+        cycle.Abandon(DateTime.UtcNow);
+
+        cycle.IsAbandoned.Should().BeTrue();
+        cycle.IsActive.Should().BeFalse();
+        cycle.IsCompleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Abandon_OnAlreadyAbandonedCycle_Throws()
+    {
+        var cycle = StartCycle();
+        cycle.Abandon(DateTime.UtcNow);
+
+        var act = () => cycle.Abandon(DateTime.UtcNow);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Abandon_OnCompletedCycle_Throws()
+    {
+        var cycle = StartCycle();
+        var puzzleId = Guid.NewGuid();
+        cycle.RecordAttempt(puzzleId, true, TimeSpan.FromSeconds(1), DateTime.UtcNow);
+        cycle.Complete(1, DateTime.UtcNow);
+
+        var act = () => cycle.Abandon(DateTime.UtcNow);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void RecordAttempt_OnAbandonedCycle_Throws()
+    {
+        var cycle = StartCycle();
+        cycle.Abandon(DateTime.UtcNow);
+
+        var act = () => cycle.RecordAttempt(Guid.NewGuid(), true, TimeSpan.FromSeconds(1), DateTime.UtcNow);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

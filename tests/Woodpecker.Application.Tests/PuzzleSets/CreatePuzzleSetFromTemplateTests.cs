@@ -28,6 +28,60 @@ public class CreatePuzzleSetFromTemplateTests
     }
 
     [Fact]
+    public async Task Handle_WithCustomPuzzleCount_PicksThatManyDistinctPuzzles()
+    {
+        using var context = TestDbContextFactory.Create();
+        context.Puzzles.AddRange(Enumerable.Range(0, 30).Select(i => Puzzle.Create(Fen, Moves, 1000 + i)));
+        await context.SaveChangesAsync(CancellationToken.None);
+        var handler = new CreatePuzzleSetFromTemplateHandler(context);
+
+        var id = await handler.Handle(new CreatePuzzleSetFromTemplateCommand("debutant", Guid.NewGuid(), PuzzleCount: 20), CancellationToken.None);
+
+        var set = await context.PuzzleSets.FindAsync(id);
+        set!.PuzzleIds.Should().HaveCount(20).And.OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public async Task Handle_WhenCatalogSmallerThanRequestedCount_Throws()
+    {
+        using var context = TestDbContextFactory.Create();
+        context.Puzzles.AddRange(Enumerable.Range(0, 12).Select(i => Puzzle.Create(Fen, Moves, 1000 + i)));
+        await context.SaveChangesAsync(CancellationToken.None);
+        var handler = new CreatePuzzleSetFromTemplateHandler(context);
+
+        var act = () => handler.Handle(new CreatePuzzleSetFromTemplateCommand("debutant", Guid.NewGuid(), PuzzleCount: 20), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(5, false)]
+    [InlineData(10, true)]
+    [InlineData(15, false)]
+    [InlineData(150, true)]
+    [InlineData(160, false)]
+    [InlineData(-3, false)]
+    public void Validator_AcceptsPuzzleCountOnlyAmongChoices(int count, bool expectedValid)
+    {
+        var validator = new CreatePuzzleSetFromTemplateValidator();
+
+        var result = validator.Validate(new CreatePuzzleSetFromTemplateCommand("debutant", Guid.NewGuid(), count));
+
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    [Fact]
+    public void Validator_AcceptsMissingPuzzleCount()
+    {
+        var validator = new CreatePuzzleSetFromTemplateValidator();
+
+        var result = validator.Validate(new CreatePuzzleSetFromTemplateCommand("debutant", Guid.NewGuid()));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Handle_WhenCatalogTooSmall_Throws()
     {
         using var context = TestDbContextFactory.Create();

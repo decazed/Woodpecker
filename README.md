@@ -37,3 +37,7 @@ src/
   Woodpecker.Web             # Frontend Blazor Server
 tests/                       # Un projet de tests par couche
 ```
+
+## Crédits
+
+Les pièces d'échecs (`src/Woodpecker.Web/wwwroot/pieces/`) sont le jeu « cburnett » de Colin M.L. Burnett, repris du dépôt Lichess ([lila](https://github.com/lichess-org/lila)), sous licence CC BY-SA 3.0 / GPLv2+.
